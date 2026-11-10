@@ -350,4 +350,77 @@ class Game {
       pr.pierce--; if (pr.pierce < 0) { pr.active = false; return; }
     }
   }
-  spawnPuddle(x, z, r, t, dmg, evo) 
+  spawnPuddle(x, z, r, t, dmg, evo) {
+    let u = null;
+    for (let k = 0; k < CFG.CAP_U; k++) { const c = this.U[(this.uCur + k) % CFG.CAP_U]; if (!c.active) { u = c; this.uCur = (c.i + 1) % CFG.CAP_U; break; } }
+    if (!u) u = this.U[this.uCur++ % CFG.CAP_U];
+    u.active = true; u.x = x; u.z = z; u.r = r; u.t = t; u.tk = 0.2; u.dmg = dmg; u.evo = evo;
+  }
+  updatePuddles(dt) {
+    for (const u of this.U) {
+      if (!u.active) continue;
+      u.t -= dt; if (u.t <= 0) { u.active = false; continue; }
+      u.tk -= dt; if (u.tk > 0) continue; u.tk = 0.4;
+      const n = this.query(u.x, u.z, u.r + 1, this.q2);
+      for (let k = 0; k < n; k++) {
+        const e = this.E[this.q2[k]]; if (e.state !== 0 || Math.hypot(e.x - u.x, e.z - u.z) > u.r + e.r) continue;
+        e.slowT = 0.6; if (u.evo) e.burnT = Math.max(e.burnT, 1.5); this.hit(e, u.dmg, 0, 0, true);
+      }
+    }
+  }
+
+  /* ---------- granos de café (experiencia) y bollos de vida ---------- */
+  spawnBean(x, z, v, kind) {
+    let b = null;
+    for (let k = 0; k < CFG.CAP_B; k++) { const c = this.B[(this.bCur + k) % CFG.CAP_B]; if (!c.active) { b = c; this.bCur = (c.i + 1) % CFG.CAP_B; break; } }
+    if (!b) {                                           // pool lleno: fusiona con el grano más cercano
+      let bd = 1e9; for (const c of this.B) { if (c.kind !== kind) continue; const d = Math.hypot(c.x - x, c.z - z); if (d < bd) { bd = d; b = c; } }
+      if (b) b.v += v; return;
+    }
+    b.active = true; b.x = x; b.z = z; b.v = v; b.kind = kind; b.age = 0; b.mag = false;
+  }
+  updateBeans(dt) {
+    const p = this.p, mr = 3.2 * (1 + 0.25 * this.pas('magnet') + 0.15 * this.meta.magnet);
+    for (const b of this.B) {
+      if (!b.active) continue;
+      b.age += dt; const dx = p.x - b.x, dz = p.z - b.z, d = Math.hypot(dx, dz);
+      if (!b.mag && d < mr) b.mag = true;
+      if (b.mag) { const sp = 11 + (b.age > 0 ? 8 : 0) + Math.max(0, (mr - d)) * 2; b.x += dx / (d || 1) * sp * dt; b.z += dz / (d || 1) * sp * dt; }
+      if (d < 0.95) {
+        b.active = false;
+        if (b.kind === 1) { p.hp = Math.min(p.maxhp, p.hp + 15); this.emit('heal', { x: p.x, z: p.z }); }
+        else { this.chain++; this.chainT = 0.5; this.beans += b.v; this.addXp(b.v); this.emit('bean', { chain: this.chain, x: b.x, z: b.z }); }
+      }
+    }
+  }
+  addXp(v) {
+    this.xp += v;
+    while (this.xp >= xpNeed(this.level)) { this.xp -= xpNeed(this.level); this.level++; this.lvQ++; }
+  }
+
+  /* ---------- subida de nivel: 3 opciones al azar (las promociones tienen prioridad) ---------- */
+  genOptions() {
+    const opts = [], ws = this.W, pool = [];
+    for (const w of ws) { const D = WEAP[w.id]; if (!w.evo && w.lv >= 5 && ws.some(o => o.id === D.evo.need)) opts.push({ k: 'evo', id: w.id, n: D.evo.n, i: D.evo.i, d: D.evo.d, tag: '¡PROMOCIÓN!' }); }
+    for (const w of ws) if (w.lv < 5) pool.push({ k: 'wup', id: w.id, n: WEAP[w.id].n, i: WEAP[w.id].i, d: WEAP[w.id].up[w.lv - 1], tag: 'NIVEL ' + (w.lv + 1) });
+    if (ws.length < 4) for (const id in WEAP) if (!ws.some(w => w.id === id)) pool.push({ k: 'wnew', id, n: WEAP[id].n, i: WEAP[id].i, d: WEAP[id].d, tag: 'NUEVA ARMA' });
+    const pn = Object.keys(this.pasv).length;
+    for (const id in PAS) { const l = this.pas(id); if (l >= 5 || (l === 0 && pn >= 5)) continue; pool.push({ k: 'p', id, n: PAS[id].n, i: PAS[id].i, d: PAS[id].d, tag: l ? 'NIVEL ' + (l + 1) : 'MEJORA' }); }
+    for (let i = pool.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; const t = pool[i]; pool[i] = pool[j]; pool[j] = t; }
+    while (opts.length < 3 && pool.length) opts.push(pool.pop());
+    if (!opts.length) opts.push({ k: 'heal', id: '', n: 'Café gratis', i: '🎁', d: 'Recuperas 40 de vida', tag: 'EXTRA' });
+    return opts;
+  }
+  choose(i) {
+    const o = this.options[i], p = this.p; if (!o || this.state !== 'levelup') return;
+    if (o.k === 'evo') this.W.find(w => w.id === o.id).evo = true;
+    else if (o.k === 'wup') this.W.find(w => w.id === o.id).lv++;
+    else if (o.k === 'wnew') this.W.push({ id: o.id, lv: 1, cd: 0.2, evo: false });
+    else if (o.k === 'p') { this.pasv[o.id] = this.pas(o.id) + 1; if (o.id === 'hp') { p.maxhp += 20; p.hp = Math.min(p.maxhp, p.hp + 20); } }
+    else p.hp = Math.min(p.maxhp, p.hp + 40);
+    this.emit('pick', { o }); this.lvQ--;
+    if (this.lvQ > 0) this.options = this.genOptions(); else { this.state = 'play'; p.iframes = 1; }
+  }
+}
+
+// FIN DE ARCHIVO

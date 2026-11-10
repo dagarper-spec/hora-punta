@@ -221,4 +221,162 @@ class View {
   num(x, z, txt, crit) {
     _v.set(x, 1.8, z).project(this.camera); if (_v.z > 1) return;
     const el = this.numEls[this.numI++ % this.numEls.length];
-    el.textC
+    el.textContent = txt; el.className = 'dn' + (crit ? ' crit' : ''); el.style.setProperty('--x', ((_v.x * 0.5 + 0.5) * this.w - 10 + (Math.random() - 0.5) * 18).toFixed(0) + 'px'); el.style.setProperty('--y', ((-_v.y * 0.5 + 0.5) * this.h).toFixed(0) + 'px');
+    void el.offsetWidth; el.classList.add('go');
+  }
+  /* Efectos visuales disparados por los eventos de la lógica */
+  onEvent(e) {
+    const g = this.g;
+    switch (e.t) {
+      case 'hit': this.burst(e.x, 1, e.z, e.crit ? 8 : 4, 4, e.crit ? [1, 0.85, 0.3] : [0.85, 0.6, 0.35], 0.35, 1); if (!e.quiet) this.num(e.x, e.z, Math.round(e.dmg), e.crit); break;
+      case 'serve': this.burst(e.x, 1.4, e.z, 7, 3, [1, 0.5, 0.7], 0.8, 1.4, -2); break;
+      case 'explode': this.ring(e.x, e.z, e.r, 0xffb066, 0.45); this.burst(e.x, 0.6, e.z, 12, 5, [1, 0.7, 0.3], 0.5, 1); break;
+      case 'bean': this.burst(g.p.x, 1.2, g.p.z, 2, 2, [1, 0.85, 0.3], 0.3, 1); break;
+      case 'heal': this.ring(g.p.x, g.p.z, 2, 0xff8fb0, 0.6); this.burst(g.p.x, 1, g.p.z, 12, 3, [1, 0.5, 0.7], 0.7, 1.4, -1); break;
+      case 'hurt': this.hurtF = 1; this.shake = Math.max(this.shake, 0.5); this.burst(g.p.x, 1.2, g.p.z, 12, 6, [1, 0.3, 0.3], 0.5, 1); break;
+      case 'level': this.ring(g.p.x, g.p.z, 6, 0xffcf3d, 0.9); this.flash = 0.5; this.burst(g.p.x, 1, g.p.z, 30, 8, [1, 0.85, 0.3], 0.9, 1.2, 2); break;
+      case 'nest': this.nestPulse[e.i] = 1; this.nests[e.i].mf.color.setHex(0xffffff); this.nests[e.i].door.material.color.setHex(0xffe08a); break;
+      case 'bossDown': this.flash = 0.8; this.shake = 1; this.burst(e.x, 1.5, e.z, 60, 10, [1, 0.8, 0.3], 1.2, 1.2); this.ring(e.x, e.z, 10, 0xffcf3d, 1.1); break;
+      case 'bossCall': this.ring(e.x, e.z, 4, 0xff5a5a, 0.6); break;
+      case 'die': this.shake = 1; this.flash = 0.6; break;
+      case 'start': this.camInit = false; for (let i = 0; i < NESTS.length; i++) if (NESTS[i].at > 0) { this.nests[i].mf.color.setHex(0x555555); this.nests[i].door.material.color.setHex(0x6a4a30); } else { this.nests[i].mf.color.setHex(0xffffff); this.nests[i].door.material.color.setHex(0xffe08a); } break;
+    }
+  }
+
+  /* ---------- postproceso: Render → Bloom → viñeta/daño → FXAA ---------- */
+  buildPost() {
+    if (!this.hasFX) return;
+    this.composer = new THREE.EffectComposer(this.renderer); this.composer.addPass(new THREE.RenderPass(this.scene, this.camera));
+    this.bloom = new THREE.UnrealBloomPass(new THREE.Vector2(256, 256), 0.55, 0.5, 0.82); this.composer.addPass(this.bloom);
+    this.fxPass = new THREE.ShaderPass({
+      uniforms: { tDiffuse: { value: null }, uHurt: { value: 0 }, uFlash: { value: 0 }, uLow: { value: 0 }, uTime: { value: 0 } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+      fragmentShader: ['uniform sampler2D tDiffuse; uniform float uHurt; uniform float uFlash; uniform float uLow; uniform float uTime; varying vec2 vUv;',
+        'void main(){ vec2 d = vUv - 0.5; float r2 = dot(d,d); float ca = 0.0015 + uHurt*0.01;',
+        '  vec3 col; col.r = texture2D(tDiffuse, 0.5 + d*(1.0-ca*3.0)).r; col.g = texture2D(tDiffuse, vUv).g; col.b = texture2D(tDiffuse, 0.5 + d*(1.0+ca*3.0)).b;',
+        '  float vig = smoothstep(0.7, 0.15, r2*1.5); col *= mix(1.0, vig, 0.5);',
+        '  col = mix(col, col*vec3(1.3,0.45,0.45), (uHurt + uLow*(0.5+0.5*sin(uTime*6.0)))*smoothstep(0.04,0.3,r2));',
+        '  col += vec3(1.0,0.9,0.7)*uFlash; gl_FragColor = vec4(col,1.0); }'].join('\n')
+    });
+    this.composer.addPass(this.fxPass); this.fxaa = new THREE.ShaderPass(THREE.FXAAShader); this.composer.addPass(this.fxaa);
+  }
+  resize() {
+    const app = this.canvas.parentElement, w = Math.max(1, app.clientWidth), h = Math.max(1, app.clientHeight);
+    this.w = w; this.h = h; this.renderer.setPixelRatio(this.pr); this.renderer.setSize(w, h, false);
+    this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
+    if (this.composer) { this.composer.setPixelRatio(this.pr); this.composer.setSize(w, h); this.fxaa.material.uniforms['resolution'].value.set(1 / (w * this.pr), 1 / (h * this.pr)); }
+  }
+  /* Resolución adaptable: si caen los FPS baja el pixel ratio y, en último extremo, apaga el bloom */
+  adapt(dt) {
+    this.fpsAcc += dt; this.fpsN++;
+    if (this.fpsAcc > 1.2) {
+      const avg = this.fpsAcc / this.fpsN; this.fpsAcc = 0; this.fpsN = 0;
+      if (avg > 0.026 && this.pr > this.prMin) { this.pr = Math.max(this.prMin, this.pr - 0.2); this.resize(); }
+      else if (avg > 0.034 && this.pr <= this.prMin + 0.01 && this.bloom && this.bloom.enabled) this.bloom.enabled = false;
+    }
+  }
+
+  /* ---------- frame ---------- */
+  render(dt, clock) {
+    const g = this.g, p = g.p, t = this.time = clock, calm = g.state === 'win';
+    // amanecer: del naranja al azul de media mañana
+    const k = g.state === 'title' ? 0.2 : Math.min(1, g.t / CFG.DURATION);
+    if (!this.cA) { this.cA = new THREE.Color(0xffc79a); this.cB = new THREE.Color(0xbfe6ff); this.cT = new THREE.Color(); }
+    this.cT.copy(this.cA).lerp(this.cB, Math.sqrt(k)); this.scene.background.copy(this.cT); this.scene.fog.color.copy(this.cT);
+    this.hemi.intensity = lerp(0.7, 1.0, k); this.sun.color.setHex(k < 0.4 ? 0xffd7a6 : 0xfff3e0); this.sun.intensity = lerp(0.8, 1.15, k);
+    this.water.material.color.setHSL(0.55, 0.8, 0.6 + 0.04 * Math.sin(t * 2));
+
+    // carrito del jugador
+    const face = Math.atan2(p.fx, p.fz), mv = Math.hypot(p.vx, p.vz), pl = this.player;
+    pl.position.set(p.x, Math.abs(Math.sin(t * 12)) * 0.05 * Math.min(1, mv / 3), p.z);
+    let dy = face - pl.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); pl.rotation.y += dy * (1 - Math.exp(-12 * dt));
+    pl.rotation.z = Math.sin(t * 12) * 0.02 * Math.min(1, mv / 3);
+    pl.visible = g.state !== 'dying' || Math.floor(t * 20) % 2 === 0;
+    const blink = p.iframes > 0 && g.state === 'play' && Math.floor(t * 24) % 2 === 0;
+    this.playerMat.emissive.setRGB(blink ? 0.6 : 0, blink ? 0.1 : 0, blink ? 0.1 : 0);
+    if (g.state === 'play' && Math.random() < dt * 8) this.emitP(p.x - p.fx * 1.4 - 0.4, 2.0, p.z - p.fz * 1.4, (Math.random() - 0.5) * 0.4, 1.4, (Math.random() - 0.5) * 0.4, [0.9, 0.9, 0.9], 0.8, -0.5);   // vapor de la cafetera
+    this.aura.visible = g.auraR > 0; if (g.auraR > 0) { this.aura.position.set(p.x, 0, p.z); this.aura.scale.setScalar(g.auraR); this.auraRing.rotation.z = t; const c = g.auraEvo ? 0xffa030 : 0xc9782f; this.aura.children[0].material.color.setHex(c); }
+
+    // nidos
+    this.nests.forEach((n, i) => { const o = g.nestOpen[i] || g.state === 'title'; if (g.state === 'title') { n.mf.color.setHex(0xffffff); n.door.material.color.setHex(0xffe08a); } this.nestPulse[i] = Math.max(0, this.nestPulse[i] - dt * 1.4); n.grp.scale.setScalar(1 + this.nestPulse[i] * 0.05 * Math.sin(this.nestPulse[i] * 20)); if (!o) n.door.material.color.setHex(0x6a4a30); });
+
+    this.renderCrowd(dt, calm); this.renderProj(); this.renderPickups();
+
+    // cámara cenital inclinada que sigue al jugador (más alta en vertical)
+    const asp = this.w / this.h, hgt = asp < 0.8 ? 30 : asp < 1.2 ? 26 : 22, back = hgt * 0.62;
+    const tx = p.x, tz = p.z + back;
+    if (!this.camInit) { this.camPos.set(tx, hgt, tz); this.camInit = true; }
+    this.camPos.x += (tx - this.camPos.x) * (1 - Math.exp(-6 * dt)); this.camPos.z += (tz - this.camPos.z) * (1 - Math.exp(-6 * dt)); this.camPos.y += (hgt - this.camPos.y) * (1 - Math.exp(-3 * dt));
+    this.shake = Math.max(0, this.shake - dt * 2.5);
+    this.camera.position.set(this.camPos.x + (Math.random() - 0.5) * this.shake, this.camPos.y + (Math.random() - 0.5) * this.shake, this.camPos.z);
+    this.camera.lookAt(this.camPos.x, 0, this.camPos.z - back);
+
+    this.updateFX(dt); this.hurtF = Math.max(0, this.hurtF - dt * 2.5); this.flash = Math.max(0, this.flash - dt * 2);
+    if (this.composer) {
+      const low = (g.state === 'play' && p.hp < p.maxhp * 0.3) ? 0.35 : 0;
+      const u = this.fxPass.uniforms; u.uHurt.value = this.hurtF * 0.8; u.uFlash.value = this.flash * 0.5; u.uLow.value = low; u.uTime.value = t;
+      this.composer.render(dt);
+    } else this.renderer.render(this.scene, this.camera);
+    this.adapt(dt);
+  }
+  renderCrowd(dt, calm) {
+    const g = this.g, t = this.time, cnt = [0, 0, 0, 0]; let si = 0, boss = null;
+    for (const e of g.E) {
+      if (!e.active) continue;
+      const T = ET[e.type];
+      if (e.type === 4) boss = e;
+      const dying = e.state === 1, u = dying ? Math.min(1, e.dt / 0.6) : 0;
+      let s = T.sc * Math.min(1, 0.3 + e.age * 3.5), y = 0, ry = e.fa, f = 1 + e.hit * 12;
+      const hop = !dying ? Math.abs(Math.sin(t * (e.type === 2 ? 14 : e.type === 3 ? 5 : 8) + e.ph)) * (e.type === 2 ? 0.2 : 0.15) : 0;
+      y = hop;
+      if (dying) { y = Math.sin(Math.min(u * 1.6, 1) * Math.PI) * 1.2; s *= 1 - u * u; ry += u * 6; f = 1; }
+      if (calm && !dying) { y = hop * 0.5; }
+      if (e.type !== 4) {
+        const m = this.cm[e.type], k = cnt[e.type]++;
+        dummy.position.set(e.x, y, e.z); dummy.rotation.set(!dying && e.type === 2 ? 0.25 : 0.1, ry, 0); dummy.scale.set(s, s, s); dummy.updateMatrix();
+        m.setMatrixAt(k, dummy.matrix); const a = m.instanceColor.array; a[k * 3] = a[k * 3 + 1] = a[k * 3 + 2] = f;
+      }
+      dummy.position.set(e.x, 0.04, e.z); dummy.rotation.set(0, 0, 0); const sh = T.r * 2.4 * (dying ? 1 - u : Math.min(1, e.age * 4)); dummy.scale.set(sh, 1, sh); dummy.updateMatrix(); this.shadow.setMatrixAt(si++, dummy.matrix);
+    }
+    for (let ty = 0; ty < 4; ty++) { const m = this.cm[ty]; m.count = cnt[ty]; m.instanceMatrix.needsUpdate = true; m.instanceColor.needsUpdate = true; }
+    // sombra del jugador
+    dummy.position.set(g.p.x, 0.04, g.p.z); dummy.scale.set(2.2, 1, 3); dummy.rotation.set(0, this.player.rotation.y, 0); dummy.updateMatrix(); this.shadow.setMatrixAt(si++, dummy.matrix);
+    this.shadow.count = si; this.shadow.instanceMatrix.needsUpdate = true;
+    const bm = this.bossMesh;
+    if (boss) {
+      const dying = boss.state === 1, u = dying ? Math.min(1, boss.dt / 0.6) : 0, s = ET[4].sc * (1 - u * u);
+      bm.visible = true; bm.position.set(boss.x, dying ? Math.sin(Math.min(u * 1.6, 1) * Math.PI) * 2 : Math.abs(Math.sin(t * 4)) * 0.25, boss.z); bm.rotation.set(0.05, boss.fa + u * 6, 0); bm.scale.setScalar(s);
+      bm.material.emissive.setRGB(boss.hit > 0 ? 0.5 : 0, boss.hit > 0 ? 0.5 : 0, boss.hit > 0 ? 0.5 : 0);
+    } else bm.visible = false;
+  }
+  renderProj() {
+    const g = this.g, c = [0, 0, 0, 0, 0];
+    for (const pr of g.P) {
+      if (!pr.active) continue;
+      const k = pr.kind; if (c[k] >= this.pmMax[k]) continue; const m = this.pm[k], i = c[k]++;
+      let y = 0.9, s = 1, ry = Math.atan2(pr.vx, pr.vz), rz = 0;
+      if (k === 1) { ry = this.time * 14 + pr.i; } else if (k === 2) { ry = this.time * 16 + pr.i; s = pr.evo ? 1.7 : 1.1; } else if (k === 3) { const u = Math.min(1, pr.age / pr.ml); y = 0.4 + 4 * u * (1 - u) * 3.2; ry = this.time * 8; rz = u * 4; } else if (k === 4 && pr.evo) { s = 1.3; }
+      dummy.position.set(pr.x, y, pr.z); dummy.rotation.set(0, ry, rz); dummy.scale.set(s, s, k === 4 && pr.evo ? s * 3 : s); dummy.updateMatrix(); m.setMatrixAt(i, dummy.matrix);
+    }
+    for (let k = 0; k < 5; k++) { this.pm[k].count = c[k]; this.pm[k].instanceMatrix.needsUpdate = true; }
+    let n = 0; const a = this.puddle.instanceColor.array;
+    for (const u of g.U) {
+      if (!u.active) continue; const fade = Math.min(1, u.t / 0.6);
+      dummy.position.set(u.x, 0.05, u.z); dummy.rotation.set(0, 0, 0); dummy.scale.set(u.r * fade, 1, u.r * fade); dummy.updateMatrix(); this.puddle.setMatrixAt(n, dummy.matrix);
+      a[n * 3] = 1; a[n * 3 + 1] = u.evo ? 0.35 : 0.65; a[n * 3 + 2] = u.evo ? 0.3 : 0.2; n++;
+    }
+    this.puddle.count = n; this.puddle.instanceMatrix.needsUpdate = true; this.puddle.instanceColor.needsUpdate = true;
+  }
+  renderPickups() {
+    const g = this.g, t = this.time; let nb = 0, nd = 0;
+    for (const b of g.B) {
+      if (!b.active) continue;
+      const pop = Math.min(1, b.age * 5), sc = (0.95 + Math.min(b.v, 6) * 0.12) * pop, y = 0.35 + Math.abs(Math.sin(t * 3 + b.i)) * 0.12 + (1 - pop) * 0.6;
+      dummy.position.set(b.x, y, b.z); dummy.rotation.set(0, t * 3 + b.i, 0); dummy.scale.set(sc, sc, sc); dummy.updateMatrix();
+      if (b.kind === 1) { if (nd < 24) this.donut.setMatrixAt(nd++, dummy.matrix); } else { this.beanM.setMatrixAt(nb, dummy.matrix); dummy.position.set(b.x, 0.05, b.z); dummy.rotation.set(0, 0, 0); dummy.scale.set(sc * 1.1, 1, sc * 1.1); dummy.updateMatrix(); this.beanSh.setMatrixAt(nb++, dummy.matrix); }
+    }
+    this.beanM.count = this.beanSh.count = nb; this.donut.count = nd; this.beanSh.instanceMatrix.needsUpdate = true; this.beanM.instanceMatrix.needsUpdate = true; this.donut.instanceMatrix.needsUpdate = true;
+  }
+}
+
+// FIN DE ARCHIVO
