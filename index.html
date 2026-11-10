@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Hora Punta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Lilita+One&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="gl"></canvas>
+  <div id="nums"></div>
+  <div id="flash"></div>
+  <div id="joy"><i></i></div>
+
+  <div class="ui" id="hud" hidden>
+    <div id="xpbar"><i id="xpFill"></i></div>
+    <div class="hud-top">
+      <div class="hp"><div class="row"><span>❤️</span><span class="num" id="hHp">100</span><span style="font-size:13px;color:var(--muted)">NV <b class="num" id="hLvl" style="color:var(--gold);font-weight:700">1</b></span></div><div class="bar"><i id="hHpBar"></i></div></div>
+      <div class="clock"><b class="num" id="hClock">07:00</b><small>HORA PUNTA</small></div>
+      <div class="right"><div class="served"><span class="num" id="hServed">0</span><small>SERVIDOS</small></div><button class="icon-btn" id="btnPause" aria-label="Pausa"><svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button></div>
+    </div>
+    <div id="weps"></div>
+    <div id="banner"></div>
+  </div>
+
+  <section class="ui screen" id="scTitle" hidden>
+    <h1 class="logo">Hora<span>Punta</span></h1>
+    <p class="sub">TU CARRITO DE DESAYUNOS CONTRA LA MULTITUD</p>
+    <div class="spacer"></div>
+    <div class="chips">
+      <div class="chip"><small>RÉCORD</small><b class="num" id="tBest">0</b></div>
+      <div class="chip gold"><small>MONEDAS</small><b class="num" id="tCoins">0</b></div>
+    </div>
+    <ul class="how">
+      <li><b>👆</b>Arrastra en cualquier sitio para moverte</li>
+      <li><b>☕</b>Tu carrito sirve solo al cliente más cercano</li>
+      <li><b>🫘</b>Recoge granos para subir de nivel</li>
+      <li><b>🥐</b>Combina armas y crea promociones</li>
+    </ul>
+    <div class="btn-row"><button class="btn" id="btnPlay">ABRIR EL CARRITO</button><div class="row2"><button class="btn ghost" id="btnShop">Tienda</button><button class="btn ghost" id="btnSnd">Sonido: sí</button></div><button class="btn ghost tiny" id="btnReset">Reiniciar progreso</button></div>
+  </section>
+
+  <section class="ui screen solid" id="scShop" hidden>
+    <div class="chip gold"><small>MONEDAS</small><b class="num" id="sCoins">0</b></div>
+    <div class="shop-list" id="shopList"></div>
+    <div style="height:14px;flex:none"></div>
+    <button class="btn ghost" id="btnShopBack">Volver</button>
+  </section>
+
+  <section class="ui screen solid" id="scLevel" hidden>
+    <div class="spacer"></div>
+    <div class="card-box">
+      <div class="kicker">¡Sube el nivel!</div>
+      <h2 class="over-title" id="lvTitle">Nivel 2</h2>
+      <div class="opts" id="lvOpts"></div>
+    </div>
+  </section>
+
+  <section class="ui screen" id="scPause" hidden>
+    <div class="spacer"></div>
+    <div class="card-box"><h2 class="over-title">PAUSA</h2><div class="btn-row"><button class="btn" id="btnResume">SEGUIR</button><button class="btn ghost" id="btnQuit">Abandonar</button></div></div>
+  </section>
+
+  <section class="ui screen" id="scOver" hidden>
+    <div class="spacer"></div>
+    <div class="card-box">
+      <h2 class="over-title" id="oTitle">¡TE ARROLLARON!</h2>
+      <div class="over-score num" id="oScore">0</div>
+      <div class="kicker">clientes servidos</div>
+      <span class="badge" id="oRecord" hidden>NUEVO RÉCORD</span>
+      <div class="stats3">
+        <div class="chip"><small>HORA</small><b class="num" id="oTime">07:00</b></div>
+        <div class="chip"><small>NIVEL</small><b class="num" id="oLvl">1</b></div>
+        <div class="chip gold"><small>MONEDAS</small><b class="num" id="oCoins">+0</b></div>
+      </div>
+      <div class="btn-row"><button class="btn" id="btnAgain">OTRA VEZ</button><button class="btn ghost" id="btnHome">Inicio</button></div>
+    </div>
+  </section>
+
+  <div id="errBox" hidden></div>
+</div>
+
+<!-- three.js r149 (build global) y postproceso desde jsDelivr, versión fijada -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/examples/js/shaders/FXAAShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/examples/js/postprocessing/MaskPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+
+<!-- Código del juego: el orden importa (cada archivo usa lo definido en los anteriores) -->
+<script src="js/config.js"></script>
+<script src="js/game.js"></script>
+<script src="js/view.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
