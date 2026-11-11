@@ -32,12 +32,12 @@ class View {
     trees.forEach((o, i) => { dummy.position.set(o.x, 0.8, o.z); dummy.rotation.set(0, 0, 0); dummy.scale.set(1, 1, 1); dummy.updateMatrix(); trunk.setMatrixAt(i, dummy.matrix); dummy.position.set(o.x, 2.4, o.z); dummy.scale.set(1, 1.1, 1); dummy.rotation.set(0, i, 0); dummy.updateMatrix(); can.setMatrixAt(i, dummy.matrix); });
     this.scene.add(trunk, can);
     for (const o of planters) { const b = new THREE.Mesh(BOX(2.6, 0.9, 2.6), ph(0xa8704a)); b.position.set(o.x, 0.45, o.z); const g = new THREE.Mesh(new THREE.IcosahedronGeometry(1.2, 0), ph(0x4aa050)); g.position.set(o.x, 1.4, o.z); g.scale.set(1, 0.7, 1); this.scene.add(b, g); }
-    const fo = OBST[0], basin = new THREE.Mesh(CYL(3.2, 3.4, 0.7, 20), ph(0xcfc6b4)); basin.position.set(fo.x, 0.35, fo.z); this.scene.add(basin);
-    const water = new THREE.Mesh(new THREE.CircleGeometry(2.8, 20), bas(0x6ac8ff)); water.rotation.x = -Math.PI / 2; water.position.set(fo.x, 0.62, fo.z); this.scene.add(water); this.water = water;
-    const col = new THREE.Mesh(CYL(0.25, 0.4, 2, 8), ph(0xcfc6b4)); col.position.set(fo.x, 1.3, fo.z); this.scene.add(col);
+    const fo = OBST[0], basin = new THREE.Mesh(CYL(3.2, 3.4, 0.7, 20), ph(0x9a917f)); basin.position.set(fo.x, 0.35, fo.z); this.scene.add(basin);
+    const water = new THREE.Mesh(new THREE.CircleGeometry(2.8, 20), bas(0x3d8fbf)); water.rotation.x = -Math.PI / 2; water.position.set(fo.x, 0.62, fo.z); this.scene.add(water); this.water = water;
+    const col = new THREE.Mesh(CYL(0.25, 0.4, 2, 8), ph(0x9a917f)); col.position.set(fo.x, 1.3, fo.z); this.scene.add(col);
     // farolas con bombilla brillante (bloom)
     const lp = [], N = 10; for (let i = 0; i < N; i++) { const a = i / N * 6.283 + 0.3; lp.push([Math.cos(a) * 31, Math.sin(a) * 31]); }
-    const pole = new THREE.InstancedMesh(CYL(0.07, 0.09, 4.2, 6), ph(0x2a2a30), N), bulb = new THREE.InstancedMesh(SPH(0.28, 8), bas(0xfff0b0), N);
+    const pole = new THREE.InstancedMesh(CYL(0.07, 0.09, 4.2, 6), ph(0x2a2a30), N), bulb = new THREE.InstancedMesh(SPH(0.28, 8), bas(0xd9c98a), N);
     lp.forEach((p, i) => { dummy.rotation.set(0, 0, 0); dummy.scale.set(1, 1, 1); dummy.position.set(p[0], 2.1, p[1]); dummy.updateMatrix(); pole.setMatrixAt(i, dummy.matrix); dummy.position.set(p[0], 4.3, p[1]); dummy.updateMatrix(); bulb.setMatrixAt(i, dummy.matrix); });
     this.scene.add(pole, bulb);
   }
@@ -83,10 +83,13 @@ class View {
   }
   buildPickups() {
     const N = CFG.CAP_B;
-    this.beanM = new THREE.InstancedMesh(new THREE.SphereGeometry(0.26, 8, 6).scale(0.8, 0.6, 1.15), bas(0xffd633), N);
+    // moneda (valor 1) y billete (valor 2 o más): modelos pequeños con relieve, sin brillo excesivo
+    this.coinM = new THREE.InstancedMesh(CYL(0.32, 0.32, 0.07, 14).rotateZ(Math.PI / 2), ph(0xf2b81c, { emissive: 0x3d2a00, shininess: 40, specular: 0x777733 }), N);
+    this.billM = new THREE.InstancedMesh(merge([part(BOX(0.66, 0.05, 0.36), 0x3fae5e), part(BOX(0.22, 0.06, 0.22), 0xd4f0de), part(BOX(0.7, 0.04, 0.05), 0x2b8a47, 0, 0, 0.14)]), ph(0xffffff, { vertexColors: true, emissive: 0x0d2f17 }), N);
     this.beanSh = new THREE.InstancedMesh(new THREE.CircleGeometry(0.5, 10).rotateX(-Math.PI / 2), bas(0x000000, { transparent: true, opacity: 0.5, depthWrite: false }), N);
     this.donut = new THREE.InstancedMesh(new THREE.TorusGeometry(0.24, 0.11, 6, 10).rotateX(Math.PI / 2), ph(0xff8fb0), 24);
-    for (const m of [this.beanSh, this.beanM, this.donut]) { m.frustumCulled = false; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); this.scene.add(m); }
+    for (const m of [this.beanSh, this.coinM, this.billM, this.donut]) { m.frustumCulled = false; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); this.scene.add(m); }
   }
 }
 // FIN DE ARCHIVO
+      
