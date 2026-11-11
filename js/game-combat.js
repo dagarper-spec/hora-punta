@@ -7,7 +7,7 @@ Object.assign(Game.prototype, {
     const p = this.p, T0 = this.t;
     for (const e of this.E) {
       if (!e.active) continue;
-      if (e.state === 1) { e.dt += dt; if (e.dt > 0.6) { e.active = false; this.nE--; } continue; }
+      if (e.state === 1) { e.dt += dt; if (e.dt > CFG.LEAVE) { e.active = false; this.nE--; } continue; }
       if (frozen) continue;
       const T = ET[e.type]; e.age += dt;
       e.hit = Math.max(0, e.hit - dt); e.tw = Math.max(0, e.tw - dt); e.slowT = Math.max(0, e.slowT - dt);
@@ -55,7 +55,8 @@ Object.assign(Game.prototype, {
       for (let k = 0; k < 10; k++) this.spawnBean(e.x + (Math.random() - 0.5) * 3, e.z + (Math.random() - 0.5) * 3, T.bean, 0);
       this.boss = null; this.bossKilled = true; this.emit('bossDown', { x: e.x, z: e.z });
     } else {
-      this.spawnBean(e.x, e.z, T.bean, 0);
+      const v = T.bean === 1 && Math.random() < 0.06 ? 2 : T.bean;   // a veces paga con billete
+      this.spawnBean(e.x, e.z, v, 0);
       if (Math.random() < 0.025) this.spawnBean(e.x + 0.6, e.z, 1, 1);
     }
     this.emit('serve', { x: e.x, z: e.z, type: e.type });
@@ -150,4 +151,4 @@ Object.assign(Game.prototype, {
   },
 });
 // FIN DE ARCHIVO
-      
+        
