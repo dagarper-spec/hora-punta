@@ -68,7 +68,7 @@ function buildCustomer(type) {
 }
 /* Carrito de desayunos con el dueño empujándolo desde atrás (el frente es +z) */
 function buildCart() {
-  const P = [], cream = 0xfff0d8, brown = 0x6b3f2a, wood = 0x9a6a3a, metal = 0xc9ccd1;
+  const P = [], cream = 0xe9d5b3, brown = 0x6b3f2a, wood = 0x9a6a3a, metal = 0xc9ccd1;
   P.push(part(BOX(1.4, 0.7, 1.7), cream, 0, 0.75, 0)); P.push(part(BOX(1.5, 0.14, 1.8), brown, 0, 0.42, 0)); P.push(part(BOX(1.5, 0.08, 1.8), wood, 0, 1.14, 0));
   for (let k = 0; k < 7; k++) { const x = -0.78 + k * 0.26; P.push(part(BOX(0.25, 0.06, 2.0), k % 2 ? 0xffffff : 0xe0453a, x, 2.05 - Math.abs(x) * 0.12, 0, [0, 0, -x * 0.12])); }
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) P.push(part(CYL(0.035, 0.035, 0.95, 6), metal, sx * 0.72, 1.62, sz * 0.9));
@@ -101,3 +101,4 @@ function facadeTex(n, w, h) {
 }
 
 // FIN DE ARCHIVO
+   
