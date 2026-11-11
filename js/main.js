@@ -145,7 +145,7 @@ function handleEvents() {
       case 'bell': SND.bell(); banner(NESTS[e.i].bell, 'Oleada de clientes'); break;
       case 'boss': SND.boss(); banner('¡EL JEFE DE LA REUNIÓN!', 'Viene a por su café'); break;
       case 'bossCall': banner('¡Reunión urgente!', 'Convoca refuerzos'); break;
-      case 'bossDown': SND.win(); banner('¡Jefe atendido!', 'Soltó un montón de granos'); break;
+      case 'bossDown': SND.win(); banner('¡Jefe atendido!', 'Soltó un montón de billetes'); break;
       case 'win': showOver(true); break;
       case 'over': showOver(false); break;
     }
@@ -182,4 +182,4 @@ function frame(ts) {
 }
 SND.setMuted(!!save.muted); setSoundUi(); toTitle();
 requestAnimationFrame(frame);
-      
+     
