@@ -7,7 +7,8 @@
 const CFG = {
   ARENA: 36, CAP_E: 240, CAP_P: 360, CAP_B: 320, CAP_U: 24,
   DURATION: 300, BOSS_AT: 200, PR: 0.7, BASE_SPEED: 6.2, BASE_HP: 100,
-  GN: 48, GO: 48, CELL: 2
+  GN: 48, GO: 48, CELL: 2,
+  LEAVE: 0.8   // segundos que tarda un cliente atendido en irse
 };
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const damp = (a, b, k, dt) => a + (b - a) * (1 - Math.exp(-k * dt));   // suavizado independiente de FPS
