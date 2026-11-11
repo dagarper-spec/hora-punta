@@ -61,7 +61,7 @@ Object.assign(View.prototype, {
   buildPost() {
     if (!this.hasFX) return;
     this.composer = new THREE.EffectComposer(this.renderer); this.composer.addPass(new THREE.RenderPass(this.scene, this.camera));
-    this.bloom = new THREE.UnrealBloomPass(new THREE.Vector2(256, 256), 0.55, 0.5, 0.82); this.composer.addPass(this.bloom);
+    this.bloom = new THREE.UnrealBloomPass(new THREE.Vector2(256, 256), 0.45, 0.45, 0.92); this.composer.addPass(this.bloom);
     this.fxPass = new THREE.ShaderPass({
       uniforms: { tDiffuse: { value: null }, uHurt: { value: 0 }, uFlash: { value: 0 }, uLow: { value: 0 }, uTime: { value: 0 } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
@@ -91,3 +91,4 @@ Object.assign(View.prototype, {
   },
 });
 // FIN DE ARCHIVO
+                                                                                            
