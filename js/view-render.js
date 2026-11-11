@@ -1,5 +1,10 @@
 'use strict';
 /* HORA PUNTA · view-render.js: dibujado de cada frame (se añade a la clase View) */
+/* Cliente atendido: se da la vuelta, se aleja andando y se encoge hasta desaparecer */
+function leaveAnim(u, fa) {
+  const tn = u < 0.3 ? u / 0.3 : 1, ry = fa + Math.PI * tn * tn * (3 - 2 * tn), dist = Math.max(0, u - 0.25) / 0.75 * 2.2, fade = clamp((u - 0.55) / 0.45, 0, 1);
+  return { ry, ox: Math.sin(ry) * dist, oz: Math.cos(ry) * dist, k: 1 - fade * fade };
+}
 Object.assign(View.prototype, {
 
   /* ---------- frame ---------- */
@@ -10,7 +15,7 @@ Object.assign(View.prototype, {
     if (!this.cA) { this.cA = new THREE.Color(0xffc79a); this.cB = new THREE.Color(0xbfe6ff); this.cT = new THREE.Color(); }
     this.cT.copy(this.cA).lerp(this.cB, Math.sqrt(k)); this.scene.background.copy(this.cT); this.scene.fog.color.copy(this.cT);
     this.hemi.intensity = lerp(0.7, 1.0, k); this.sun.color.setHex(k < 0.4 ? 0xffd7a6 : 0xfff3e0); this.sun.intensity = lerp(0.8, 1.15, k);
-    this.water.material.color.setHSL(0.55, 0.8, 0.6 + 0.04 * Math.sin(t * 2));
+    this.water.material.color.setHSL(0.55, 0.6, 0.42 + 0.03 * Math.sin(t * 2));
 
     // carrito del jugador
     const face = Math.atan2(p.fx, p.fz), mv = Math.hypot(p.vx, p.vz), pl = this.player;
@@ -51,18 +56,18 @@ Object.assign(View.prototype, {
       if (!e.active) continue;
       const T = ET[e.type];
       if (e.type === 4) boss = e;
-      const dying = e.state === 1, u = dying ? Math.min(1, e.dt / 0.6) : 0;
+      const dying = e.state === 1, u = dying ? Math.min(1, e.dt / CFG.LEAVE) : 0, lv = dying ? leaveAnim(u, e.fa) : null, ox = dying ? lv.ox : 0, oz = dying ? lv.oz : 0;
       let s = T.sc * Math.min(1, 0.3 + e.age * 3.5), y = 0, ry = e.fa, f = 1 + e.hit * 12;
       const hop = !dying ? Math.abs(Math.sin(t * (e.type === 2 ? 14 : e.type === 3 ? 5 : 8) + e.ph)) * (e.type === 2 ? 0.2 : 0.15) : 0;
       y = hop;
-      if (dying) { y = Math.sin(Math.min(u * 1.6, 1) * Math.PI) * 1.2; s *= 1 - u * u; ry += u * 6; f = 1; }
+      if (dying) { y = Math.abs(Math.sin(t * 9 + e.ph)) * 0.12; s *= lv.k; ry = lv.ry; f = 1; }
       if (calm && !dying) { y = hop * 0.5; }
       if (e.type !== 4) {
         const m = this.cm[e.type], k = cnt[e.type]++;
-        dummy.position.set(e.x, y, e.z); dummy.rotation.set(!dying && e.type === 2 ? 0.25 : 0.1, ry, 0); dummy.scale.set(s, s, s); dummy.updateMatrix();
+        dummy.position.set(e.x + ox, y, e.z + oz); dummy.rotation.set(!dying && e.type === 2 ? 0.25 : 0.1, ry, 0); dummy.scale.set(s, s, s); dummy.updateMatrix();
         m.setMatrixAt(k, dummy.matrix); const a = m.instanceColor.array; a[k * 3] = a[k * 3 + 1] = a[k * 3 + 2] = f;
       }
-      dummy.position.set(e.x, 0.04, e.z); dummy.rotation.set(0, 0, 0); const sh = T.r * 2.4 * (dying ? 1 - u : Math.min(1, e.age * 4)); dummy.scale.set(sh, 1, sh); dummy.updateMatrix(); this.shadow.setMatrixAt(si++, dummy.matrix);
+      dummy.position.set(e.x + ox, 0.04, e.z + oz); dummy.rotation.set(0, 0, 0); const sh = T.r * 2.4 * (dying ? lv.k : Math.min(1, e.age * 4)); dummy.scale.set(sh, 1, sh); dummy.updateMatrix(); this.shadow.setMatrixAt(si++, dummy.matrix);
     }
     for (let ty = 0; ty < 4; ty++) { const m = this.cm[ty]; m.count = cnt[ty]; m.instanceMatrix.needsUpdate = true; m.instanceColor.needsUpdate = true; }
     // sombra del jugador
@@ -70,8 +75,8 @@ Object.assign(View.prototype, {
     this.shadow.count = si; this.shadow.instanceMatrix.needsUpdate = true;
     const bm = this.bossMesh;
     if (boss) {
-      const dying = boss.state === 1, u = dying ? Math.min(1, boss.dt / 0.6) : 0, s = ET[4].sc * (1 - u * u);
-      bm.visible = true; bm.position.set(boss.x, dying ? Math.sin(Math.min(u * 1.6, 1) * Math.PI) * 2 : Math.abs(Math.sin(t * 4)) * 0.25, boss.z); bm.rotation.set(0.05, boss.fa + u * 6, 0); bm.scale.setScalar(s);
+      const dying = boss.state === 1, u = dying ? Math.min(1, boss.dt / CFG.LEAVE) : 0, lv = dying ? leaveAnim(u, boss.fa) : null, s = ET[4].sc * (dying ? lv.k : 1);
+      bm.visible = true; bm.position.set(boss.x + (dying ? lv.ox : 0), Math.abs(Math.sin(t * (dying ? 7 : 4))) * 0.25, boss.z + (dying ? lv.oz : 0)); bm.rotation.set(0.05, dying ? lv.ry : boss.fa, 0); bm.scale.setScalar(s);
       bm.material.emissive.setRGB(boss.hit > 0 ? 0.5 : 0, boss.hit > 0 ? 0.5 : 0, boss.hit > 0 ? 0.5 : 0);
     } else bm.visible = false;
   },
@@ -94,14 +99,27 @@ Object.assign(View.prototype, {
     this.puddle.count = n; this.puddle.instanceMatrix.needsUpdate = true; this.puddle.instanceColor.needsUpdate = true;
   },
   renderPickups() {
-    const g = this.g, t = this.time; let nb = 0, nd = 0;
+    const g = this.g, t = this.time; let nc = 0, nb = 0, nd = 0, ns = 0;
     for (const b of g.B) {
       if (!b.active) continue;
-      const pop = Math.min(1, b.age * 5), sc = (0.95 + Math.min(b.v, 6) * 0.12) * pop, y = 0.35 + Math.abs(Math.sin(t * 3 + b.i)) * 0.12 + (1 - pop) * 0.6;
-      dummy.position.set(b.x, y, b.z); dummy.rotation.set(0, t * 3 + b.i, 0); dummy.scale.set(sc, sc, sc); dummy.updateMatrix();
-      if (b.kind === 1) { if (nd < 24) this.donut.setMatrixAt(nd++, dummy.matrix); } else { this.beanM.setMatrixAt(nb, dummy.matrix); dummy.position.set(b.x, 0.05, b.z); dummy.rotation.set(0, 0, 0); dummy.scale.set(sc * 1.1, 1, sc * 1.1); dummy.updateMatrix(); this.beanSh.setMatrixAt(nb++, dummy.matrix); }
+      const pop = Math.min(1, b.age * 5), bob = Math.abs(Math.sin(t * 3 + b.i)) * 0.12, lift = (1 - pop) * 0.6;
+      if (b.kind === 1) {                                   // bollo de vida
+        if (nd >= 24) continue;
+        dummy.position.set(b.x, 0.35 + bob + lift, b.z); dummy.rotation.set(0, t * 3 + b.i, 0); dummy.scale.setScalar(pop); dummy.updateMatrix(); this.donut.setMatrixAt(nd++, dummy.matrix);
+        continue;
+      }
+      let sc;
+      if (b.v >= 2) {                                       // billete: planea y gira despacio
+        sc = (b.v >= 5 ? 1.5 : 1.1) * pop;
+        dummy.position.set(b.x, 0.5 + bob + lift, b.z); dummy.rotation.set(Math.sin(t * 2 + b.i) * 0.25, t * 2 + b.i, Math.cos(t * 2.3 + b.i) * 0.25); dummy.scale.setScalar(sc); dummy.updateMatrix(); this.billM.setMatrixAt(nb++, dummy.matrix);
+      } else {                                              // moneda: gira de canto
+        sc = pop;
+        dummy.position.set(b.x, 0.45 + bob + lift, b.z); dummy.rotation.set(0, t * 5 + b.i, 0); dummy.scale.setScalar(sc); dummy.updateMatrix(); this.coinM.setMatrixAt(nc++, dummy.matrix);
+      }
+      dummy.position.set(b.x, 0.05, b.z); dummy.rotation.set(0, 0, 0); dummy.scale.set(sc * 1.1, 1, sc * 1.1); dummy.updateMatrix(); this.beanSh.setMatrixAt(ns++, dummy.matrix);
     }
-    this.beanM.count = this.beanSh.count = nb; this.donut.count = nd; this.beanSh.instanceMatrix.needsUpdate = true; this.beanM.instanceMatrix.needsUpdate = true; this.donut.instanceMatrix.needsUpdate = true;
+    this.coinM.count = nc; this.billM.count = nb; this.beanSh.count = ns; this.donut.count = nd;
+    for (const m of [this.coinM, this.billM, this.beanSh, this.donut]) m.instanceMatrix.needsUpdate = true;
   },
 });
 // FIN DE ARCHIVO
