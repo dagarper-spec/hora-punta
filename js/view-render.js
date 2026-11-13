@@ -11,11 +11,11 @@ Object.assign(View.prototype, {
   render(dt, clock) {
     const g = this.g, p = g.p, t = this.time = clock, calm = g.state === 'win';
     // amanecer: del naranja al azul de media mañana
-    const k = g.state === 'title' ? 0.2 : Math.min(1, g.t / CFG.DURATION);
+    const k = g.state === 'title' ? 0.2 : Math.min(1, g.t / g.day.dur);
     if (!this.cA) { this.cA = new THREE.Color(0xffc79a); this.cB = new THREE.Color(0xbfe6ff); this.cT = new THREE.Color(); }
     this.cT.copy(this.cA).lerp(this.cB, Math.sqrt(k)); this.scene.background.copy(this.cT); this.scene.fog.color.copy(this.cT);
     this.hemi.intensity = lerp(0.7, 1.0, k); this.sun.color.setHex(k < 0.4 ? 0xffd7a6 : 0xfff3e0); this.sun.intensity = lerp(0.8, 1.15, k);
-    this.water.material.color.setHSL(0.55, 0.6, 0.42 + 0.03 * Math.sin(t * 2));
+    if (this.water) this.water.material.color.setHSL(0.55, 0.6, 0.42 + 0.03 * Math.sin(t * 2));
 
     // carrito del jugador
     const face = Math.atan2(p.fx, p.fz), mv = Math.hypot(p.vx, p.vz), pl = this.player;
@@ -43,6 +43,7 @@ Object.assign(View.prototype, {
     this.camera.lookAt(this.camPos.x, 0, this.camPos.z - back);
 
     this.updateFX(dt); this.hurtF = Math.max(0, this.hurtF - dt * 2.5); this.flash = Math.max(0, this.flash - dt * 2);
+    if (this.pkAcc > 0 && (this.pkT -= dt) <= 0) { this.num(p.x, p.z, '+' + this.pkAcc, false, true); this.pkAcc = 0; }   // suma lo recogido y lo muestra sobre el carrito
     if (this.composer) {
       const low = (g.state === 'play' && p.hp < p.maxhp * 0.3) ? 0.35 : 0;
       const u = this.fxPass.uniforms; u.uHurt.value = this.hurtF * 0.8; u.uFlash.value = this.flash * 0.5; u.uLow.value = low; u.uTime.value = t;
@@ -51,14 +52,14 @@ Object.assign(View.prototype, {
     this.adapt(dt);
   },
   renderCrowd(dt, calm) {
-    const g = this.g, t = this.time, cnt = [0, 0, 0, 0]; let si = 0, boss = null;
+    const g = this.g, t = this.time, cnt = [0, 0, 0, 0, 0, 0, 0, 0, 0]; let si = 0, boss = null;
     for (const e of g.E) {
       if (!e.active) continue;
       const T = ET[e.type];
       if (e.type === 4) boss = e;
       const dying = e.state === 1, u = dying ? Math.min(1, e.dt / CFG.LEAVE) : 0, lv = dying ? leaveAnim(u, e.fa) : null, ox = dying ? lv.ox : 0, oz = dying ? lv.oz : 0;
       let s = T.sc * Math.min(1, 0.3 + e.age * 3.5), y = 0, ry = e.fa, f = 1 + e.hit * 12;
-      const hop = !dying ? Math.abs(Math.sin(t * (e.type === 2 ? 14 : e.type === 3 ? 5 : 8) + e.ph)) * (e.type === 2 ? 0.2 : 0.15) : 0;
+      const hop = !dying ? Math.abs(Math.sin(t * (e.type === 2 ? 14 : e.type === 3 || e.type === 8 ? 5 : e.type === 7 ? 3 : 8) + e.ph)) * (e.type === 2 ? 0.2 : e.type === 7 ? 0.03 : 0.15) : 0;
       y = hop;
       if (dying) { y = Math.abs(Math.sin(t * 9 + e.ph)) * 0.12; s *= lv.k; ry = lv.ry; f = 1; }
       if (calm && !dying) { y = hop * 0.5; }
@@ -69,7 +70,7 @@ Object.assign(View.prototype, {
       }
       dummy.position.set(e.x + ox, 0.04, e.z + oz); dummy.rotation.set(0, 0, 0); const sh = T.r * 2.4 * (dying ? lv.k : Math.min(1, e.age * 4)); dummy.scale.set(sh, 1, sh); dummy.updateMatrix(); this.shadow.setMatrixAt(si++, dummy.matrix);
     }
-    for (let ty = 0; ty < 4; ty++) { const m = this.cm[ty]; m.count = cnt[ty]; m.instanceMatrix.needsUpdate = true; m.instanceColor.needsUpdate = true; }
+    for (const ty of INST) { const m = this.cm[ty]; m.count = cnt[ty]; m.instanceMatrix.needsUpdate = true; m.instanceColor.needsUpdate = true; }
     // sombra del jugador
     dummy.position.set(g.p.x, 0.04, g.p.z); dummy.scale.set(2.2, 1, 3); dummy.rotation.set(0, this.player.rotation.y, 0); dummy.updateMatrix(); this.shadow.setMatrixAt(si++, dummy.matrix);
     this.shadow.count = si; this.shadow.instanceMatrix.needsUpdate = true;
@@ -77,7 +78,7 @@ Object.assign(View.prototype, {
     if (boss) {
       const dying = boss.state === 1, u = dying ? Math.min(1, boss.dt / CFG.LEAVE) : 0, lv = dying ? leaveAnim(u, boss.fa) : null, s = ET[4].sc * (dying ? lv.k : 1);
       bm.visible = true; bm.position.set(boss.x + (dying ? lv.ox : 0), Math.abs(Math.sin(t * (dying ? 7 : 4))) * 0.25, boss.z + (dying ? lv.oz : 0)); bm.rotation.set(0.05, dying ? lv.ry : boss.fa, 0); bm.scale.setScalar(s);
-      bm.material.emissive.setRGB(boss.hit > 0 ? 0.5 : 0, boss.hit > 0 ? 0.5 : 0, boss.hit > 0 ? 0.5 : 0);
+      const hh = boss.hit > 0 ? 0.5 : 0; bm.material.emissive.setRGB(hh + boss.rg * 0.18, hh, hh);   // más rojo en cada fase
     } else bm.visible = false;
   },
   renderProj() {

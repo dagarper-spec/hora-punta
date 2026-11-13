@@ -4,17 +4,6 @@
    Guardado, tienda, entrada (joystick/teclado), UI y bucle principal.
    Conecta la lógica (Game), la vista (View) y el audio (SND).
    ===================================================================== */
-const SAVE_KEY = 'horapunta.save.v1';
-const save = { best: 0, coins: 0, muted: false, meta: { hp: 0, speed: 0, dmg: 0, magnet: 0 }, owned: { espresso: 1 }, startW: 'espresso' };
-try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || '{}'); Object.assign(save, s); save.meta = Object.assign({ hp: 0, speed: 0, dmg: 0, magnet: 0 }, s.meta || {}); save.owned = Object.assign({ espresso: 1 }, s.owned || {}); } catch (e) {}
-const persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} };
-const META = [
-  { k: 'hp', i: '🛒', n: 'Carrito Reforzado', d: '+10 de vida inicial por nivel', cost: [80, 150, 240, 360, 500] },
-  { k: 'speed', i: '🛞', n: 'Ruedas Engrasadas', d: '+4% de velocidad por nivel', cost: [80, 150, 240, 360, 500] },
-  { k: 'dmg', i: '☕', n: 'Café Premium', d: '+5% de daño por nivel', cost: [100, 180, 280, 400, 560] },
-  { k: 'magnet', i: '🧲', n: 'Imán Dorado', d: '+15% radio de recogida por nivel', cost: [60, 110, 180, 270, 380] }
-];
-const W_COST = { espresso: 0, croissant: 200, canela: 250, tostada: 300, zumo: 350, colacao: 400 };
 
 const showErr = m => { const b = $('errBox'); if (b) { b.hidden = false; b.textContent = 'Error: ' + m; } };
 window.addEventListener('error', e => showErr(e.message));
@@ -58,60 +47,29 @@ window.addEventListener('keyup', e => { Input.keys[e.code] = false; });
 
 /* ----- UI ----- */
 const show = (id, on) => { $(id).hidden = !on; };
-const clockStr = t => { const m = 420 + Math.floor(t * 0.4); return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); };
 function setSoundUi() { $('btnSnd').textContent = 'Sonido: ' + (SND.muted ? 'no' : 'sí'); }
 function refreshTitle() { $('tBest').textContent = fmt(save.best); $('tCoins').textContent = fmt(save.coins); }
 function banner(text, sub) { const b = $('banner'); b.innerHTML = ''; const w = document.createElement('div'); w.className = 'bn'; const h = document.createElement('b'); h.textContent = text; w.appendChild(h); if (sub) { const s = document.createElement('small'); s.textContent = sub; w.appendChild(s); } b.appendChild(w); b.classList.remove('go'); void b.offsetWidth; b.classList.add('go'); }
 function toTitle() {
-  paused = false; game.demo(); game.state = 'title';
-  show('scTitle', true); show('scOver', false); show('scPause', false); show('scLevel', false); show('scShop', false); show('hud', false); refreshTitle();
+  paused = false; setMap(save.map); game.demo(); game.state = 'title'; if (view) { view.setCart(save.cart); view.setMap(save.map); }
+  show('scTitle', true); show('scDays', false); show('scOver', false); show('scPause', false); show('scLevel', false); show('scShop', false); show('hud', false); refreshTitle();
   SND.setIntensity(0.15);
 }
 function startRun() {
   SND.init(); SND.click(); setSoundUi(); hudSig = '';
-  show('scTitle', false); show('scOver', false); show('scPause', false); show('scLevel', false); show('scShop', false); show('hud', true);
-  game.start(save.meta, save.startW); $('banner').classList.remove('go');
-  banner('¡HORA PUNTA!', 'Aguanta hasta las 09:00');
+  show('scTitle', false); show('scDays', false); show('scOver', false); show('scPause', false); show('scLevel', false); show('scShop', false); show('hud', true);
+  setMap(save.map); if (view) { view.setCart(save.cart); view.setMap(save.map); } game.start(save.meta, save.startW, curDay, save.won, save.cart, save.map); hintI = 0; $('banner').classList.remove('go');
+  banner('¡' + DAYS[curDay].name.toUpperCase() + '!', 'Derrota al jefe antes de que acabe el turno');
 }
 function setPaused(p) { if (game.state !== 'play') return; paused = p; show('scPause', p); if (p) SND.suspend(); else SND.resume(); }
-function showLevel() {
-  $('lvTitle').textContent = 'Nivel ' + game.level; const box = $('lvOpts'); box.innerHTML = '';
-  game.options.forEach((o, i) => {
-    const b = document.createElement('button'); b.className = 'opt' + (o.k === 'evo' ? ' evo' : '');
-    b.innerHTML = '<span class="ic">' + o.i + '</span><span class="tx"><span class="tg">' + o.tag + '</span><span class="nm"></span><span class="ds"></span></span>';
-    b.querySelector('.nm').textContent = o.n; b.querySelector('.ds').textContent = o.d;
-    b.addEventListener('click', () => { SND.pick(); game.choose(i); });
-    box.appendChild(b);
-  });
-  show('scLevel', true);
-}
-function showOver(win) {
-  const sc = game.served, rec = sc > save.best, coins = Math.floor(sc / 8) + Math.floor(game.t / 30) * 5 + (win ? 100 : 0) + (game.bossKilled ? 50 : 0);
-  if (rec) save.best = sc; save.coins += coins; persist();
-  $('oTitle').textContent = win ? '¡SOBREVIVISTE A LA HORA PUNTA!' : '¡TE ARROLLARON!';
-  $('oRecord').hidden = !rec; $('oTime').textContent = clockStr(game.t); $('oLvl').textContent = game.level; $('oCoins').textContent = '+' + fmt(coins);
-  show('hud', false); show('scOver', true);
-  const t0 = performance.now(), el = $('oScore'); (function count(now) { const k = clamp((now - t0) / 700, 0, 1); el.textContent = fmt(sc * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(count); })(t0);
-  SND.setIntensity(0.15); win ? SND.win() : SND.lose();
-}
-/* Tienda: mejoras permanentes del carrito y desbloqueo del arma inicial */
-function renderShop() {
-  $('sCoins').textContent = fmt(save.coins); const box = $('shopList'); box.innerHTML = '';
-  const h = t => { const d = document.createElement('div'); d.className = 'shop-h'; d.textContent = t; box.appendChild(d); };
-  const row = (ic, n, d, pips, btn) => { const r = document.createElement('div'); r.className = 'srow'; r.innerHTML = '<span class="ic"></span><span class="tx"><span class="nm"></span><span class="ds"></span><span class="pips"></span></span>'; r.querySelector('.ic').textContent = ic; r.querySelector('.nm').textContent = n; r.querySelector('.ds').textContent = d; r.querySelector('.pips').textContent = pips; r.appendChild(btn); box.appendChild(r); };
-  const mkBtn = (txt, dis, cls, fn) => { const b = document.createElement('button'); b.className = 'buy' + (cls ? ' ' + cls : ''); b.textContent = txt; b.disabled = dis; b.addEventListener('click', () => { SND.init(); SND.click(); fn(); persist(); renderShop(); }); return b; };
-  h('Mejoras del carrito');
-  for (const m of META) {
-    const l = save.meta[m.k], max = l >= 5, c = m.cost[l];
-    row(m.i, m.n, m.d, '●'.repeat(l) + '○'.repeat(5 - l), mkBtn(max ? 'MÁX' : fmt(c) + ' 🪙', max || save.coins < c, '', () => { save.coins -= c; save.meta[m.k]++; }));
-  }
-  h('Arma inicial');
-  for (const id in WEAP) {
-    const own = !!save.owned[id], eq = save.startW === id, c = W_COST[id];
-    row(WEAP[id].i, WEAP[id].n, WEAP[id].d, '', mkBtn(eq ? 'EQUIPADA' : own ? 'ELEGIR' : fmt(c) + ' 🪙', eq || (!own && save.coins < c), eq ? 'eq' : '', () => { if (!own) { save.coins -= c; save.owned[id] = 1; } save.startW = id; }));
-  }
-}
-$('btnPlay').addEventListener('click', startRun); $('btnAgain').addEventListener('click', startRun);
+$('btnPlay').addEventListener('click', () => { SND.init(); SND.click(); showDays(); });
+$('btnMap').addEventListener('click', () => {
+  const ids = Object.keys(MAPS), id = ids[(ids.indexOf(save.map) + 1) % ids.length];
+  if (!isOpen('map', id, save.won)) { $('btnMap').textContent = '🔒 ' + lockHint('map', id); setTimeout(showDays, 1600); return; }
+  SND.click(); save.map = id; persist(); setMap(id); if (view) view.setMap(id); showDays();
+});
+$('btnDaysBack').addEventListener('click', () => { SND.click(); toTitle(); });
+$('btnNext').addEventListener('click', () => { curDay = Math.min(DAYS.length - 1, curDay + 1); startRun(); }); $('btnAgain').addEventListener('click', startRun);
 $('btnHome').addEventListener('click', () => { SND.click(); toTitle(); });
 $('btnShop').addEventListener('click', () => { SND.init(); SND.click(); show('scTitle', false); show('scShop', true); renderShop(); });
 $('btnShopBack').addEventListener('click', () => { SND.click(); show('scShop', false); show('scTitle', true); refreshTitle(); });
@@ -122,7 +80,7 @@ let resetT = 0;
 $('btnReset').addEventListener('click', () => {            // doble toque, sin confirm()
   if (!resetT) { $('btnReset').textContent = '¿Seguro? Toca otra vez'; resetT = setTimeout(() => { resetT = 0; $('btnReset').textContent = 'Reiniciar progreso'; }, 3000); return; }
   clearTimeout(resetT); resetT = 0; $('btnReset').textContent = 'Reiniciar progreso';
-  Object.assign(save, { best: 0, coins: 0, meta: { hp: 0, speed: 0, dmg: 0, magnet: 0 }, owned: { espresso: 1 }, startW: 'espresso' }); persist(); refreshTitle();
+  Object.assign(save, { best: 0, coins: 0, meta: { hp: 0, speed: 0, dmg: 0, magnet: 0 }, owned: { espresso: 1 }, startW: 'espresso', cart: 'clasico', map: 'plaza', won: [0, 0, 0, 0, 0] }); persist(); refreshTitle();
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden) setPaused(true); });
 if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => view && view.resize()).observe(app); else window.addEventListener('resize', () => view && view.resize());
@@ -135,7 +93,7 @@ function handleEvents() {
       case 'shoot': SND.shoot(e.k); break;
       case 'hit': SND.hit(); break;
       case 'serve': SND.serve(); break;
-      case 'bean': SND.bean(e.chain); break;
+      case 'bean': SND.bean(e.chain, e.v); break;
       case 'explode': SND.explode(); break;
       case 'hurt': SND.hurt(); break;
       case 'heal': SND.heal(); break;
@@ -143,21 +101,31 @@ function handleEvents() {
       case 'pick': if (game.state === 'levelup') showLevel(); else show('scLevel', false); break;
       case 'nest': SND.bell(); banner(NESTS[e.i].icon + ' ¡Abre ' + NESTS[e.i].name.toLowerCase() + '!', 'Nuevos clientes'); break;
       case 'bell': SND.bell(); banner(NESTS[e.i].bell, 'Oleada de clientes'); break;
-      case 'boss': SND.boss(); banner('¡EL JEFE DE LA REUNIÓN!', 'Viene a por su café'); break;
+      case 'boss': SND.boss(); banner('¡EL JEFE DE LA REUNIÓN!', 'Derrótalo para ganar el día'); break;
+      case 'warn': SND.bell(); banner('¡Quedan 30 segundos!', game.bossKilled ? '' : 'Derrota al jefe'); break;
+      case 'bossPhase': SND.boss(); banner('¡El jefe se enfurece!', e.r === 2 ? 'Última fase' : 'Va más rápido'); break;
+      case 'tide': SND.bell(); banner('¡LA MAREA FINAL!', 'Todos a la vez'); break;
       case 'bossCall': banner('¡Reunión urgente!', 'Convoca refuerzos'); break;
       case 'bossDown': SND.win(); banner('¡Jefe atendido!', 'Soltó un montón de billetes'); break;
-      case 'win': showOver(true); break;
-      case 'over': showOver(false); break;
+      case 'win': showOver('win'); break;
+      case 'timeout': showOver('time'); break;
+      case 'over': showOver('dead'); break;
     }
   }
   game.events.length = 0;
 }
-let hudSig = '';
+let hudSig = '', hintI = 0;
+/* Pistas del Lunes (solo hasta superarlo): una cada vez, en el momento justo */
+function hintTick() {
+  if (curDay !== 0 || save.won[0] || game.state !== 'play') return;
+  const H = [[2, 'Arrastra el dedo', 'Así te mueves por la plaza'], [8, 'El carrito sirve solo', 'Atiende al cliente más cercano'], [14, 'Recoge monedas y billetes', 'Llena la barra y sube de nivel'], [game.day.bossAt - 12, 'Se acerca el jefe', 'Derrótalo antes de que acabe el turno']];
+  if (hintI < H.length && game.t >= H[hintI][0]) { banner(H[hintI][1], H[hintI][2]); hintI++; }
+}
 function updateHUD() {
   const p = game.p;
   $('hHp').textContent = Math.ceil(p.hp); $('hHpBar').style.width = (clamp(p.hp / p.maxhp, 0, 1) * 100).toFixed(1) + '%';
   $('xpFill').style.width = (clamp(game.xp / xpNeed(game.level), 0, 1) * 100).toFixed(1) + '%';
-  $('hLvl').textContent = game.level; $('hClock').textContent = clockStr(game.t); $('hServed').textContent = fmt(game.served);
+  $('hLvl').textContent = game.level; $('hClock').textContent = clockStr(game.t, game.day.dur); $('hTimer').textContent = mmss(game.day.dur - game.t); bossUi(view); hintTick(); $('hServed').textContent = fmt(game.served);
   const sig = game.W.map(w => w.id + w.lv + (w.evo ? 'e' : '')).join() + '|' + JSON.stringify(game.pasv);
   if (sig !== hudSig) {
     hudSig = sig; const box = $('weps'); box.innerHTML = '';
@@ -176,10 +144,11 @@ function frame(ts) {
   handleEvents();
   if (game.state === 'play' || game.state === 'dying' || game.state === 'levelup') {
     updateHUD();
-    SND.setIntensity(clamp(game.t / CFG.DURATION * 0.6 + game.nE / CFG.CAP_E * 0.5, 0, 1));
+    SND.setIntensity(clamp(game.t / game.day.dur * 0.6 + game.nE / CFG.CAP_E * 0.5, 0, 1));
   }
   if (view) view.render(dt, clock);
 }
 SND.setMuted(!!save.muted); setSoundUi(); toTitle();
 requestAnimationFrame(frame);
-     
+
+// FIN DE ARCHIVO

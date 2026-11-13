@@ -13,7 +13,9 @@ Object.assign(Game.prototype, {
       e.hit = Math.max(0, e.hit - dt); e.tw = Math.max(0, e.tw - dt); e.slowT = Math.max(0, e.slowT - dt);
       if (e.burnT > 0) { e.burnT -= dt; e.burnTk -= dt; if (e.burnTk <= 0) { e.burnTk = 0.5; this.hit(e, 3 * this.dmgMul(), 0, 0, true); if (e.state !== 0) continue; } }
       let dx = p.x - e.x, dz = p.z - e.z; const d = Math.hypot(dx, dz) || 0.001; dx /= d; dz /= d; e.fa = Math.atan2(dx, dz);
-      const sp = T.sp * (e.slowT > 0 ? 0.55 : 1) * Math.min(1, 0.4 + e.age * 3);
+      let rage = 0;
+      if (e.type === 4) { const q = e.hp / e.mh; rage = q < 0.33 ? 2 : q < 0.66 ? 1 : 0; if (rage > e.rg) { e.rg = rage; e.callT = Math.min(e.callT, 0.5); this.emit('bossPhase', { x: e.x, z: e.z, r: rage }); } }   // fases del jefe
+      const sp = T.sp * (e.slowT > 0 ? 0.55 : 1) * Math.min(1, 0.4 + e.age * 3) * (1 + 0.22 * rage);
       let vx = dx * sp + e.kx, vz = dz * sp + e.kz; const kd = Math.exp(-8 * dt); e.kx *= kd; e.kz *= kd;
       const n = this.query(e.x, e.z, T.r * 2.2);
       for (let k = 0; k < n; k++) {
@@ -28,9 +30,9 @@ Object.assign(Game.prototype, {
       }
       if (e.type === 4) {                              // el jefe convoca refuerzos
         e.callT -= dt;
-        if (e.callT <= 0) { e.callT = 6; for (let k = 0; k < 5; k++) { const a = k * 1.2566; this.spawnE(0, e.x + Math.cos(a) * 2.6, e.z + Math.sin(a) * 2.6); } this.emit('bossCall', { x: e.x, z: e.z }); }
+        if (e.callT <= 0) { e.callT = 6 - 1.2 * rage; const nc = 5 + rage * 2; for (let k = 0; k < nc; k++) { const a = k * 6.2832 / nc; this.spawnE(rage === 2 && this.day.tide && k % 3 === 0 ? 5 : 0, e.x + Math.cos(a) * 2.6, e.z + Math.sin(a) * 2.6); } this.emit('bossCall', { x: e.x, z: e.z }); }
       }
-      if (d < T.r + CFG.PR) { this.hurt(T.dmg * (1 + T0 / 600)); e.kx -= dx * 5; e.kz -= dz * 5; if (this.state !== 'play') return; }
+      if (d < T.r + CFG.PR) { this.hurt(T.dmg * (1 + T0 / 600) * this.day.dmg); e.kx -= dx * 5; e.kz -= dz * 5; if (this.state !== 'play') return; }
     }
   },
   hurt(dmg) {
@@ -41,7 +43,7 @@ Object.assign(Game.prototype, {
   /* Daño a un cliente; devuelve true si lo mata ("atiende" y se marcha feliz) */
   hit(e, dmg, kx, kz, quiet) {
     if (!e.active || e.state !== 0) return false;
-    const crit = Math.random() < 0.1; if (crit) dmg *= 2;
+    const crit = Math.random() < 0.1; if (crit) dmg *= 2; dmg *= ET[e.type].ar || 1;
     e.hp -= dmg; e.hit = 0.1; const k = ET[e.type].kb; e.kx += kx * k; e.kz += kz * k;
     const dead = e.hp <= 0;
     if (!quiet || dead) this.emit('hit', { x: e.x, z: e.z, dmg, crit, quiet: !!quiet });
@@ -151,4 +153,3 @@ Object.assign(Game.prototype, {
   },
 });
 // FIN DE ARCHIVO
-        

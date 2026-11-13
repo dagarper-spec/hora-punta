@@ -20,8 +20,13 @@ const ET = [
   { n: 'Estudiante',    hp: 8,    sp: 3.4, r: 0.38, dmg: 4,  bean: 1, kb: 1.2,  sc: 0.95 },
   { n: 'Corredor',      hp: 6,    sp: 4.8, r: 0.38, dmg: 6,  bean: 1, kb: 1.3,  sc: 0.9 },
   { n: 'Universitario', hp: 34,   sp: 2.0, r: 0.58, dmg: 8, bean: 2, kb: 0.6,  sc: 1.2 },
-  { n: 'Jefe',          hp: 1600, sp: 2.0, r: 1.7,  dmg: 24, bean: 6, kb: 0.05, sc: 2.3 }
+  { n: 'Jefe',          hp: 1600, sp: 2.0, r: 1.7,  dmg: 24, bean: 6, kb: 0.05, sc: 2.3 },
+  { n: 'Ejecutivo',     hp: 60,   sp: 2.2, r: 0.55, dmg: 9,  bean: 2, kb: 0.3,  sc: 1.15, ar: 0.55 },   // escudo: recibe la mitad de daño
+  { n: 'Cliente VIP',   hp: 35,   sp: 2.7, r: 0.45, dmg: 6,  bean: 5, kb: 0.8,  sc: 1.05 },             // suelta un billete grande
+  { n: 'Repartidor',    hp: 10,   sp: 6.2, r: 0.4,  dmg: 8,  bean: 1, kb: 1.2,  sc: 1.0 },             // patinete: muy rápido
+  { n: 'Turista',       hp: 55,   sp: 1.7, r: 0.62, dmg: 7,  bean: 2, kb: 0.3,  sc: 1.15, ar: 0.8 }    // maleta: aguanta
 ];
+const INST = [0, 1, 2, 3, 5, 6, 7, 8];   // tipos dibujados como instancias (el 4 es el jefe)
 /* Nidos: de dónde salen los clientes. 'at' = segundo en que abren; 'mix' = [tipo, peso] */
 const NESTS = [
   { id: 'oficinas',    name: 'OFICINAS',     icon: '🏢', x: -A - 8, z: -6,  w: 11, h: 11, d: 9,  at: 0,   col: 0xb7c4d6, mix: [[0, 1]], bell: '¡Entran las oficinas!' },
@@ -77,3 +82,5 @@ const PAS = {
   area:   { n: 'Aroma Intenso',         i: '🌫️', d: '+12% de área' }
 };
 const xpNeed = lv => 4 + 4 * (lv - 1) + Math.floor(0.15 * lv * lv);   // experiencia para subir de nivel
+
+// FIN DE ARCHIVO

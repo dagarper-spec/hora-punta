@@ -32,10 +32,10 @@ Object.assign(View.prototype, {
   },
   ring(x, z, r, col, d) { const m = this.rings[this.ringI++ % this.rings.length]; m.visible = true; m.position.set(x, 0.1, z); m.material.color.setHex(col); m.userData.t = 0; m.userData.d = d || 0.6; m.userData.r = r; },
   /* Número de daño flotante (elementos DOM reutilizados en pool) */
-  num(x, z, txt, crit) {
-    _v.set(x, 1.8, z).project(this.camera); if (_v.z > 1) return;
+  num(x, z, txt, crit, pk) {
+    _v.set(x, pk ? 3 : 1.8, z).project(this.camera); if (_v.z > 1) return;
     const el = this.numEls[this.numI++ % this.numEls.length];
-    el.textContent = txt; el.className = 'dn' + (crit ? ' crit' : ''); el.style.setProperty('--x', ((_v.x * 0.5 + 0.5) * this.w - 10 + (Math.random() - 0.5) * 18).toFixed(0) + 'px'); el.style.setProperty('--y', ((-_v.y * 0.5 + 0.5) * this.h).toFixed(0) + 'px');
+    el.textContent = txt; el.className = 'dn' + (crit ? ' crit' : '') + (pk ? ' pk' : ''); el.style.setProperty('--x', ((_v.x * 0.5 + 0.5) * this.w - 10 + (Math.random() - 0.5) * 18).toFixed(0) + 'px'); el.style.setProperty('--y', ((-_v.y * 0.5 + 0.5) * this.h).toFixed(0) + 'px');
     void el.offsetWidth; el.classList.add('go');
   },
   /* Efectos visuales disparados por los eventos de la lógica */
@@ -45,15 +45,17 @@ Object.assign(View.prototype, {
       case 'hit': this.burst(e.x, 1, e.z, e.crit ? 8 : 4, 4, e.crit ? [1, 0.85, 0.3] : [0.85, 0.6, 0.35], 0.35, 1); if (!e.quiet) this.num(e.x, e.z, Math.round(e.dmg), e.crit); break;
       case 'serve': this.burst(e.x, 1.4, e.z, 7, 3, [1, 0.5, 0.7], 0.8, 1.4, -2); break;
       case 'explode': this.ring(e.x, e.z, e.r, 0xffb066, 0.45); this.burst(e.x, 0.6, e.z, 12, 5, [1, 0.7, 0.3], 0.5, 1); break;
-      case 'bean': this.burst(g.p.x, 1.2, g.p.z, 2, 2, [1, 0.85, 0.3], 0.3, 1); break;
-      case 'heal': this.ring(g.p.x, g.p.z, 2, 0xff8fb0, 0.6); this.burst(g.p.x, 1, g.p.z, 12, 3, [1, 0.5, 0.7], 0.7, 1.4, -1); break;
+      case 'bean': this.pkAcc = (this.pkAcc || 0) + e.v; if (!(this.pkT > 0)) this.pkT = 0.35; this.burst(g.p.x, 1.2, g.p.z, 2, 2, [1, 0.85, 0.3], 0.3, 1); break;
+      case 'heal': this.num(g.p.x, g.p.z, '❤ +' + e.v, false, true); this.ring(g.p.x, g.p.z, 2, 0xff8fb0, 0.6); this.burst(g.p.x, 1, g.p.z, 12, 3, [1, 0.5, 0.7], 0.7, 1.4, -1); break;
       case 'hurt': this.hurtF = 1; this.shake = Math.max(this.shake, 0.5); this.burst(g.p.x, 1.2, g.p.z, 12, 6, [1, 0.3, 0.3], 0.5, 1); break;
-      case 'level': this.ring(g.p.x, g.p.z, 6, 0xffcf3d, 0.9); this.flash = 0.5; this.burst(g.p.x, 1, g.p.z, 30, 8, [1, 0.85, 0.3], 0.9, 1.2, 2); break;
+      case 'level': this.ring(g.p.x, g.p.z, 3, 0xffffff, 0.5); this.ring(g.p.x, g.p.z, 8, 0xffcf3d, 1.1); this.flash = 0.5; this.shake = Math.max(this.shake, 0.3); this.burst(g.p.x, 0.5, g.p.z, 24, 3, [1, 0.95, 0.6], 1.2, 3.5, 6); this.burst(g.p.x, 1, g.p.z, 30, 8, [1, 0.85, 0.3], 0.9, 1.2, 2); break;
       case 'nest': this.nestPulse[e.i] = 1; this.nests[e.i].mf.color.setHex(0xffffff); this.nests[e.i].door.material.color.setHex(0xffe08a); break;
       case 'bossDown': this.flash = 0.8; this.shake = 1; this.burst(e.x, 1.5, e.z, 60, 10, [1, 0.8, 0.3], 1.2, 1.2); this.ring(e.x, e.z, 10, 0xffcf3d, 1.1); break;
+      case 'bossPhase': this.flash = 0.5; this.shake = 0.8; this.ring(e.x, e.z, 8, 0xff3030, 0.9); break;
+      case 'tide': this.flash = 0.4; break;
       case 'bossCall': this.ring(e.x, e.z, 4, 0xff5a5a, 0.6); break;
       case 'die': this.shake = 1; this.flash = 0.6; break;
-      case 'start': this.camInit = false; for (let i = 0; i < NESTS.length; i++) if (NESTS[i].at > 0) { this.nests[i].mf.color.setHex(0x555555); this.nests[i].door.material.color.setHex(0x6a4a30); } else { this.nests[i].mf.color.setHex(0xffffff); this.nests[i].door.material.color.setHex(0xffe08a); } break;
+      case 'start': this.camInit = false; this.pkAcc = 0; this.pkT = 0; for (let i = 0; i < NESTS.length; i++) if (NESTS[i].at > 0) { this.nests[i].mf.color.setHex(0x555555); this.nests[i].door.material.color.setHex(0x6a4a30); } else { this.nests[i].mf.color.setHex(0xffffff); this.nests[i].door.material.color.setHex(0xffe08a); } break;
     }
   },
 
@@ -91,4 +93,3 @@ Object.assign(View.prototype, {
   },
 });
 // FIN DE ARCHIVO
-                                                                                            

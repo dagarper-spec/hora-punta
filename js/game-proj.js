@@ -89,7 +89,7 @@ Object.assign(Game.prototype, {
     b.active = true; b.x = x; b.z = z; b.v = v; b.kind = kind; b.age = 0; b.mag = false;
   },
   updateBeans(dt) {
-    const p = this.p, mr = 3.2 * (1 + 0.25 * this.pas('magnet') + 0.15 * this.meta.magnet);
+    const p = this.p, mr = 3.2 * (1 + 0.25 * this.pas('magnet') + 0.15 * this.meta.magnet + this.cartD.mg);
     for (const b of this.B) {
       if (!b.active) continue;
       b.age += dt; const dx = p.x - b.x, dz = p.z - b.z, d = Math.hypot(dx, dz);
@@ -97,8 +97,8 @@ Object.assign(Game.prototype, {
       if (b.mag) { const sp = 11 + (b.age > 0 ? 8 : 0) + Math.max(0, (mr - d)) * 2; b.x += dx / (d || 1) * sp * dt; b.z += dz / (d || 1) * sp * dt; }
       if (d < 0.95) {
         b.active = false;
-        if (b.kind === 1) { p.hp = Math.min(p.maxhp, p.hp + 15); this.emit('heal', { x: p.x, z: p.z }); }
-        else { this.chain++; this.chainT = 0.5; this.beans += b.v; this.addXp(b.v); this.emit('bean', { chain: this.chain, x: b.x, z: b.z }); }
+        if (b.kind === 1) { p.hp = Math.min(p.maxhp, p.hp + 15); this.emit('heal', { x: p.x, z: p.z, v: 15 }); }
+        else { this.chain++; this.chainT = 0.5; this.beans += b.v; this.addXp(b.v); this.emit('bean', { chain: this.chain, x: b.x, z: b.z, v: b.v }); }
       }
     }
   },
@@ -112,9 +112,9 @@ Object.assign(Game.prototype, {
     const opts = [], ws = this.W, pool = [];
     for (const w of ws) { const D = WEAP[w.id]; if (!w.evo && w.lv >= 5 && ws.some(o => o.id === D.evo.need)) opts.push({ k: 'evo', id: w.id, n: D.evo.n, i: D.evo.i, d: D.evo.d, tag: '¡PROMOCIÓN!' }); }
     for (const w of ws) if (w.lv < 5) pool.push({ k: 'wup', id: w.id, n: WEAP[w.id].n, i: WEAP[w.id].i, d: WEAP[w.id].up[w.lv - 1], tag: 'NIVEL ' + (w.lv + 1) });
-    if (ws.length < 4) for (const id in WEAP) if (!ws.some(w => w.id === id)) pool.push({ k: 'wnew', id, n: WEAP[id].n, i: WEAP[id].i, d: WEAP[id].d, tag: 'NUEVA ARMA' });
+    if (ws.length < 4) for (const id in WEAP) if (isOpen('weap', id, this.won) && !ws.some(w => w.id === id)) pool.push({ k: 'wnew', id, n: WEAP[id].n, i: WEAP[id].i, d: WEAP[id].d, tag: 'NUEVA ARMA' });
     const pn = Object.keys(this.pasv).length;
-    for (const id in PAS) { const l = this.pas(id); if (l >= 5 || (l === 0 && pn >= 5)) continue; pool.push({ k: 'p', id, n: PAS[id].n, i: PAS[id].i, d: PAS[id].d, tag: l ? 'NIVEL ' + (l + 1) : 'MEJORA' }); }
+    for (const id in PAS) { const l = this.pas(id); if (!isOpen('pas', id, this.won) || l >= 5 || (l === 0 && pn >= 5)) continue; pool.push({ k: 'p', id, n: PAS[id].n, i: PAS[id].i, d: PAS[id].d, tag: l ? 'NIVEL ' + (l + 1) : 'MEJORA' }); }
     for (let i = pool.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; const t = pool[i]; pool[i] = pool[j]; pool[j] = t; }
     while (opts.length < 3 && pool.length) opts.push(pool.pop());
     if (!opts.length) opts.push({ k: 'heal', id: '', n: 'Café gratis', i: '🎁', d: 'Recuperas 40 de vida', tag: 'EXTRA' });
@@ -132,4 +132,3 @@ Object.assign(Game.prototype, {
   },
 });
 // FIN DE ARCHIVO
-    
