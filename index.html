@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Lilita+One&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/semana.css">
 </head>
 <body>
 <div id="app">
@@ -20,10 +21,12 @@
     <div id="xpbar"><i id="xpFill"></i></div>
     <div class="hud-top">
       <div class="hp"><div class="row"><span>❤️</span><span class="num" id="hHp">100</span><span style="font-size:13px;color:var(--muted)">NV <b class="num" id="hLvl" style="color:var(--gold);font-weight:700">1</b></span></div><div class="bar"><i id="hHpBar"></i></div></div>
-      <div class="clock"><b class="num" id="hClock">07:00</b><small>HORA PUNTA</small></div>
+      <div class="clock"><div class="ck"><b class="num" id="hClock">07:00</b><span id="hTimer">3:00</span></div><small id="hDay">HORA PUNTA</small></div>
       <div class="right"><div class="served"><span class="num" id="hServed">0</span><small>SERVIDOS</small></div><button class="icon-btn" id="btnPause" aria-label="Pausa"><svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button></div>
     </div>
     <div id="weps"></div>
+    <div id="bossBar" hidden><span>JEFE</span><div class="bar"><i id="bossFill"></i></div></div>
+    <div id="bossArrow" hidden>➤</div>
     <div id="banner"></div>
   </div>
 
@@ -33,19 +36,28 @@
     <div class="spacer"></div>
     <div class="chips">
       <div class="chip"><small>RÉCORD</small><b class="num" id="tBest">0</b></div>
-      <div class="chip gold"><small>MONEDAS</small><b class="num" id="tCoins">0</b></div>
+      <div class="chip gold"><small>PROPINAS</small><b class="num" id="tCoins">0</b></div>
     </div>
     <ul class="how">
       <li><b>👆</b>Arrastra en cualquier sitio para moverte</li>
       <li><b>☕</b>Tu carrito sirve solo al cliente más cercano</li>
-      <li><b>🫘</b>Recoge monedas y billetes para subir de nivel</li>
+      <li><b>🪙</b>Recoge monedas y billetes para subir de nivel</li>
       <li><b>🥐</b>Combina armas y crea promociones</li>
     </ul>
     <div class="btn-row"><button class="btn" id="btnPlay">ABRIR EL CARRITO</button><div class="row2"><button class="btn ghost" id="btnShop">Tienda</button><button class="btn ghost" id="btnSnd">Sonido: sí</button></div><button class="btn ghost tiny" id="btnReset">Reiniciar progreso</button></div>
   </section>
 
+  <section class="ui screen" id="scDays" hidden>
+    <div class="spacer"></div>
+    <h2 class="over-title">LA SEMANA</h2>
+    <p class="sub">DERROTA AL JEFE CADA DÍA ANTES DE QUE ACABE EL TURNO</p>
+    <button class="btn ghost" id="btnMap">Plaza</button>
+    <div class="dlist" id="dList"></div>
+    <button class="btn ghost" id="btnDaysBack">Volver</button>
+  </section>
+
   <section class="ui screen solid" id="scShop" hidden>
-    <div class="chip gold"><small>MONEDAS</small><b class="num" id="sCoins">0</b></div>
+    <div class="chip gold"><small>PROPINAS</small><b class="num" id="sCoins">0</b></div>
     <div class="shop-list" id="shopList"></div>
     <div style="height:14px;flex:none"></div>
     <button class="btn ghost" id="btnShopBack">Volver</button>
@@ -75,9 +87,9 @@
       <div class="stats3">
         <div class="chip"><small>HORA</small><b class="num" id="oTime">07:00</b></div>
         <div class="chip"><small>NIVEL</small><b class="num" id="oLvl">1</b></div>
-        <div class="chip gold"><small>MONEDAS</small><b class="num" id="oCoins">+0</b></div>
+        <div class="chip gold"><small>PROPINAS</small><b class="num" id="oCoins">+0</b></div>
       </div>
-      <div class="btn-row"><button class="btn" id="btnAgain">OTRA VEZ</button><button class="btn ghost" id="btnHome">Inicio</button></div>
+      <div class="btn-row"><button class="btn" id="btnNext" hidden>SIGUIENTE DÍA</button><button class="btn" id="btnAgain">OTRA VEZ</button><button class="btn ghost" id="btnHome">Inicio</button></div>
     </div>
   </section>
 
@@ -97,6 +109,9 @@
 
 <!-- Código del juego: el orden importa (cada archivo usa lo definido en los anteriores) -->
 <script src="js/config.js"></script>
+<script src="js/days.js"></script>
+<script src="js/carts.js"></script>
+<script src="js/maps.js"></script>
 <script src="js/game-core.js"></script>
 <script src="js/game-combat.js"></script>
 <script src="js/game-proj.js"></script>
@@ -105,6 +120,10 @@
 <script src="js/view-fx.js"></script>
 <script src="js/view-render.js"></script>
 <script src="js/audio.js"></script>
+<script src="js/view-hud.js"></script>
+<script src="js/save.js"></script>
+<script src="js/ui-shop.js"></script>
+<script src="js/ui-screens.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>
