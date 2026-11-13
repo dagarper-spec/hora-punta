@@ -51,10 +51,14 @@ const SND = (() => {
     shoot(k) { if (!ok('s' + k, 0.07)) return; const t = ac.currentTime; if (k === 0) tone(520, t, 0.06, 'square', 0.04, sfx, { to: 300 }); else if (k === 1) tone(400, t, 0.12, 'triangle', 0.08, sfx, { to: 700 }); else if (k === 2) noise(t, 0.2, 900, 0.1, 'bandpass', 2500); else if (k === 3) tone(300, t, 0.2, 'sine', 0.1, sfx, { to: 600 }); else noise(t, 0.08, 1500, 0.07); },
     hit() { if (ok('hit', 0.05)) tone(180, ac.currentTime, 0.05, 'square', 0.04, sfx, { to: 100 }); },
     serve() { if (!ok('srv', 0.06)) return; const t = ac.currentTime, b = 76 + ((Math.random() * 3) | 0) * 2; tone(mtof(b), t, 0.1, 'triangle', 0.07, sfx); tone(mtof(b + 4), t + 0.06, 0.12, 'triangle', 0.07, sfx); },
-    bean(c) { if (ok('bean', 0.03)) tone(mtof(72 + Math.min(c, 14)), ac.currentTime, 0.1, 'sine', 0.09, sfx); },
+    bean(c, v) {   // moneda: "ching" que sube por la escala pentatónica con la racha; billete: frufrú + nota grave
+      if (!ok('bean', 0.035)) return; const t = ac.currentTime, s = Math.min(c, 7), n = 74 + [0, 2, 4, 7, 9][s % 5] + 12 * Math.floor(s / 5);
+      if (v >= 2) { noise(t, 0.14, 2500, 0.1, 'bandpass', 5000); tone(mtof(n - 12), t + 0.02, 0.18, 'triangle', 0.1, sfx); }
+      else { tone(mtof(n), t, 0.14, 'triangle', 0.08, sfx); tone(mtof(n + 12), t + 0.045, 0.12, 'sine', 0.05, sfx); }
+    },
     explode() { if (ok('exp', 0.1)) { const t = ac.currentTime; noise(t, 0.3, 700, 0.3, 'lowpass', 120); tone(90, t, 0.25, 'sine', 0.3, sfx, { to: 40 }); } },
     hurt() { if (!ok('hurt', 0.1)) return; const t = ac.currentTime; noise(t, 0.2, 500, 0.4, 'lowpass', 120); tone(140, t, 0.2, 'sawtooth', 0.2, sfx, { to: 60 }); },
-    level() { if (!ok('lv')) return; const t = ac.currentTime; [0, 4, 7, 12, 16].forEach((n, i) => tone(mtof(72 + n), t + i * 0.07, 0.25, 'triangle', 0.14, sfx)); },
+    level() { if (!ok('lv')) return; const t = ac.currentTime; [0, 4, 7, 12, 16].forEach((n, i) => tone(mtof(72 + n), t + i * 0.07, 0.25, 'triangle', 0.14, sfx)); noise(t + 0.25, 0.6, 6500, 0.04, 'highpass'); },
     pick() { if (ok('pick')) { const t = ac.currentTime; tone(mtof(79), t, 0.12, 'square', 0.08, sfx); tone(mtof(86), t + 0.08, 0.2, 'square', 0.08, sfx); } },
     bell() { if (!ok('bell')) return; const t = ac.currentTime; tone(880, t, 0.6, 'sine', 0.2, sfx); tone(1318, t, 0.5, 'sine', 0.1, sfx); tone(659, t + 0.4, 0.8, 'sine', 0.2, sfx); },
     boss() { if (!ok('boss')) return; const t = ac.currentTime; tone(90, t, 1, 'sawtooth', 0.3, sfx, { to: 40 }); noise(t, 0.9, 600, 0.3, 'lowpass', 100); },
@@ -64,3 +68,5 @@ const SND = (() => {
     click() { if (ok('clk')) tone(520, ac.currentTime, 0.07, 'square', 0.07, sfx); }
   };
 })();
+
+// FIN DE ARCHIVO
